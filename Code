@@ -1,0 +1,617 @@
+import newGameLib
+from newGameLib import *
+import Blender
+
+
+class Node:
+	def __init__(self):
+		self.ID=None
+		self.parentID=None
+		self.data=None
+		self.childList=[]
+
+		
+def getNode(parent,n):
+	n+=4
+	print '-'*n,parent.name 
+	for child in parent.childList:
+		getNode(child,n)			
+
+	
+def gettwig(parentnode,value,key,value_type):
+	if value is not None:
+		childList=parentnode.childList
+		for child in childList:
+			name=child.name
+			if name==key:
+				if value_type=='list':
+					value.append(child)
+				if value_type=='data':					
+					value.append(child.data)
+			#else:
+			gettwig(child,value,key,value_type)
+					
+						
+def get(parentnode,key,value_type):
+	if value_type=='list':
+		value=[]
+	elif value_type=='data':
+		value=[]
+	else:
+		value=None
+	
+	gettwig(parentnode,value,key,value_type)
+				
+	return  value
+
+def octParser(filename,g):
+   #file_size = stream.size()
+	#g.logOpen()
+	g.endian='<'
+	w = g.i(6)
+	g.seek(60)
+	t=g.tell()
+	strings = [""]
+
+	s = ""
+	g.seek(1,1)
+	while(True):
+		flag=g.read(1)
+		if flag=='\x01':
+			g.seek(-2,1)
+			break
+		else:
+			g.seek(-1,1)
+			s = g.find('\x00')
+		strings.append(s)
+	g.seek(t+w[3])
+
+	parentIDList={}
+	parentIDList[str(-1)]=-1
+
+	nodeID=0
+	#g.debug=True
+	while(True):
+	#for m in range(10): 
+		if g.tell()==g.fileSize():break
+		flag = g.H(1)[0]
+		ID=g.H(1)[0]
+		name = strings[ID]
+		node=Node()
+		node.name=name
+
+		indent,format = divmod(flag,0x400)
+		if txtFlag==True:
+			txt.write("\t"*(indent) + name + "[%04x]"%format+'\n')
+		data=None
+		node.ID=nodeID
+		parentIDList[str(indent)]=nodeID
+		node.parentID=parentIDList[str(indent-1)]
+		#node.parentID=parentID
+		#print nodeID,node.parentID
+		#print 'format:',format,g.tell(),name
+		if format == 0x01:
+			data='TREE'
+			
+		elif format == 0x05:
+			ID=g.H(1)[0]
+			data = strings[ID]
+		elif format == 0x0A:
+			count = g.B(1)[0]
+			data = []
+			for i in range(count):
+				data.append(strings[g.H(1)[0]])
+		elif format == 0x0B:
+			data = strings[g.H(1)[0]]
+		elif format == 0x12:
+			count = g.B(1)[0]
+			data = []
+			for i in range(count):
+				data.append(g.f(1)[0])
+		elif format == 0x13:
+			data = g.f(1)[0]
+		elif format == 0x1A:
+			count = g.B(1)[0]
+			data = []
+			for i in range(count):
+				data.append(g.B(1)[0])
+		elif format == 0x1B:
+			data = g.B(1)[0]
+		elif format == 0x23:
+			count = g.B(1)[0]
+			data = []
+			for i in range(count):
+				data.append(g.B(1)[0])
+		elif format == 0x4A:
+			count = g.H(1)[0]
+			data = []
+			for i in range(count):
+				data.append(strings[g.H(1)[0]])
+		elif format == 0x5A:
+			count = g.H(1)[0]
+			data = []
+			for i in range(count):
+				data.append(g.B(1)[0])
+		elif format == 0x63: # binary data
+			count = g.H(1)[0]
+			data = []
+			for i in range(count):
+				data.append(g.B(1)[0])
+		elif format == 0x11A:
+			count = g.B(1)[0]
+			data = []
+			for i in range(count):
+				data.append(g.H(1)[0])
+		elif format == 0x11B:
+			data = g.H(1)[0]
+		elif format == 0x15A:
+			count = g.H(1)[0]
+			data = []
+			for i in range(count):
+				data.append(g.H(1)[0])
+		elif format == 0x21A:
+			count = g.B(1)[0]
+			data = []
+			for i in range(count):
+				data.append(g.i12(1)[0])
+		elif format == 0x21B:
+			data = g.i12(1)[0]
+		elif format == 0x31B:
+			data = g.i(1)[0]
+		elif format == 0x16:
+			ID=g.H(1)[0]
+			data = []
+			data.append(strings[ID])
+			count = g.B(1)[0]
+			for i in range(count):
+				data.append(g.f(1)[0])
+		elif format == 0xa3:
+			size = g.i12(1)[0]
+			g.seek(size,1)
+			#g.i(1)
+		else:
+			print 'WARNING:unknow format:',hex(format)
+			break
+		if txtFlag==True:
+			txt.write("\t"*(indent) +str(data)+'\n')
+		node.data=data
+		nodeList.append(node)
+		nodeID+=1
+		
+	for ID in range(len(nodeList)):
+		node=nodeList[ID]
+		if node.parentID!=-1:
+			parent=nodeList[node.parentID]
+			parent.childList.append(node)
+	#g.logClose()	
+	print g.tell(),g.fileSize()	
+		
+		
+		
+class Element:
+	def __init__(self):
+		self.type=None
+		self.name=None
+		self.offset=None
+		
+class VertexStream:
+	def __init__(self):
+		self.elements=[]
+		self.length=None
+		self.width=None
+		self.vertexBufferReference=None
+		self.vertexBufferOffset=None
+		
+		
+class IndexStream:
+	def __init__(self):
+		self.Length=None
+		self.IndexBufferReference=None
+		self.IndexBufferOffset=None
+		self.IndexStreamPrimitive=None
+		self.vertexBufferOffset=None
+		
+def draw(filename,g):
+	#g.debug=True			
+	rootNode=nodeList[0]
+	vertBuffList=get(rootNode,'VertexBuffer','list')
+	vertBuffFileNameList=[]
+	print 'vertBuffList'
+	for i,vertBuff in enumerate(vertBuffList):
+		size=get(vertBuff,'Size','data')
+		name=get(vertBuff,'Name','data')
+		fileName=get(vertBuff,'FileName','data')
+		if len(fileName)==0:
+			vertBuffFileNameList.append(None)
+		else:	
+			vertBuffFileNameList.append(fileName[0])
+		print i,size,name,fileName#,len(fileName)
+	print 'IndexBuffer'	
+	IndexBufferList=get(rootNode,'IndexBuffer','list')
+	IndexBufferFileNameList=[]
+	for i,IndexBuffer in enumerate(IndexBufferList):
+		size=get(IndexBuffer,'Size','data')
+		name=get(IndexBuffer,'Name','data')
+		fileName=get(IndexBuffer,'FileName','data')
+		if len(fileName)==0:
+			IndexBufferFileNameList.append(None)
+		else:	
+			IndexBufferFileNameList.append(fileName[0])
+		print i,size,name,fileName
+	print	
+	
+	
+	locIndexStreamList=get(rootNode,'IndexStream','list')
+	IndexStreamList=[]
+	for i,locIndexStream in enumerate(locIndexStreamList):
+		stream=IndexStream()
+		IndexStreamList.append(stream)
+		stream.length=get(locIndexStream,'Length','data')[0]
+		stream.indexBufferReference=get(locIndexStream,'IndexBufferReference','data')[0]
+		stream.indexBufferOffset=get(locIndexStream,'IndexBufferOffset','data')[0]
+		stream.indexStreamPrimitive=get(locIndexStream,'IndexStreamPrimitive','data')[0]
+		#IndexStreamList.append([IndexBufferReference,Length,IndexBufferOffset,IndexStreamPrimitive])
+		print i,stream.indexBufferReference,stream.length,stream.indexBufferOffset,stream.indexStreamPrimitive
+	print	
+	
+	locVertexStreamList=get(rootNode,'VertexStream','list')
+	VertexStreamList=[]
+	for i,locVertexStream in enumerate(locVertexStreamList):
+		stream=VertexStream()
+		VertexStreamList.append(stream)
+		stream.length=get(locVertexStream,'Length','data')[0]
+		stream.width=get(locVertexStream,'Width','data')[0]
+		stream.vertexBufferReference=get(locVertexStream,'VertexBufferReference','data')[0]
+		stream.vertexBufferOffset=get(locVertexStream,'VertexBufferOffset','data')[0]
+		#stream.IndexStreamPrimitive=get(locVertexStream,'IndexStreamPrimitive','data')
+		#VertexStreamList.append([IndexBufferReference,Length,IndexBufferOffset,IndexStreamPrimitive])
+		print i,stream.length,stream.width,stream.vertexBufferReference,stream.vertexBufferOffset
+		Elements=get(locVertexStream,'Elements','list')
+		if len(Elements)==1:
+			locElementList=get(Elements[0],'Element','list')
+			for j,locElement in enumerate(locElementList):
+				element=Element()
+				stream.elements.append(element)
+				element.type=get(locElement,'Type','data')[0]
+				element.name=get(locElement,'Name','data')[0]
+				element.offset=get(locElement,'Offset','data')[0]
+				#Type=get(locElement,'Type','data')
+				print element.type,element.name,element.offset
+	
+	
+	if len(IndexStreamList)==0 and len(VertexStreamList)==0:
+	
+		SceneTreeNodePoolList=get(rootNode,'SceneTreeNodePool','list')
+		modelList=[]
+		skeletonID=0
+		for SceneTreeNodePool in SceneTreeNodePoolList:
+			locNodeList=get(SceneTreeNodePool,'Node','list')
+			for node in locNodeList:
+				Type=get(node,'Type','data')
+				if Type[0]=='Geometry':	
+					print
+					print 'Geometry'
+					skeleton=Skeleton()
+					skeleton.ARMATURESPACE=True
+					Influences=get(node,'Influence','list')
+					skeleton.name='bindBones-'+str(skeletonID)
+					skeleton.NICE=True
+					skeletonID+=1
+					for Influence in Influences:
+						bone=Bone()
+						Name=get(Influence,'Name','data')
+						matrix=get(Influence,'BindPoseSkinLocalToWorldMatrixInverseData','data')
+						matrix=matrix[0]
+						matrix=Matrix(matrix[:4],matrix[4:8],matrix[8:12],matrix[12:16])
+						if len(Name)>0:
+							bone.name=Name[0][-26:]
+							print bone.name
+						bone.matrix=matrix.invert()
+						skeleton.boneList.append(bone)
+					#skeleton.draw()	
+						
+					subMeshCount=get(node,'NumPrimitives','data')				
+					meshList={}
+					Primitives=get(node,'Primitive','list')				
+					mesh=Mesh()
+					for i,Primitive in enumerate(Primitives):				
+						Vdata=get(Primitive,'Vdata','data')	
+						print 'Vdata:',Vdata	
+						if Vdata[0][2] not in meshList.keys():
+							print 'newmesh'
+							meshList[Vdata[0][2]]=mesh
+						else:
+							mesh=meshList[Vdata[0][2]]
+						file=open(g.dirname+os.sep+vertBuffFileNameList[Vdata[0][2]],'rb')
+						vb=BinaryReader(file)
+						vb.seek(Vdata[0][3])
+						for m in range(Vdata[0][1]):
+							t=vb.tell()
+							mesh.vertPosList.append(vb.f(3))
+							mesh.vertUVList.append(vb.half(2))
+							vb.seek(t+Vdata[0][4])	
+							
+						vb.seek(Vdata[0][6])
+						for m in range(Vdata[0][1]):
+							t=vb.tell()
+							mesh.skinIndiceList.append(vb.B(4))
+							mesh.skinWeightList.append(vb.B(4))
+							mesh.skinIDList.append(0)
+							vb.seek(t+Vdata[0][7])
+							
+							
+						skin=Skin()
+						mesh.skinList.append(skin)
+						Idata=get(Primitive,'Idata','data')
+						print
+						print 'Idata'
+						print Idata
+						file=open(g.dirname+os.sep+IndexBufferFileNameList[0],'rb')
+						idx=BinaryReader(file)
+						idx.seek(Idata[0][1])
+						mat=Mat()
+						mat.TRIANGLE=True
+						mat.IDStart=len(mesh.indiceList)
+						print 'idstart:',mat.IDStart,idx.tell()
+						indiceList=idx.H(Idata[0][3])
+						print min(indiceList),max(indiceList)
+						for id in indiceList:
+							mesh.skinIDList[id]=i
+						mesh.indiceList.extend(indiceList)
+						mat.IDCount=Idata[0][3]
+						file.close()					
+						mesh.matList.append(mat)
+						MaterialReference=get(Primitive,'MaterialReference','data')	
+					#mesh.draw()
+					modelList.append([skeleton,meshList])	
+						
+			
+		skeleton=Skeleton()	
+		skeleton.ARMATURESPACE=True
+		skeleton.NICE=True
+		BasisList=get(rootNode,'Basis','list')
+		for Basis in BasisList:
+			#print Basis.data
+			Name=get(Basis,'Name','data')
+			bone=Bone()
+			bone.name=None
+			if len(Name)>0:
+				bone.name=Name[0][-26:]
+			ParentRef=get(Basis,'ParentRef','data')
+			if len(ParentRef)>0:
+				bone.parentID=ParentRef[0]#[-25:]
+			skeleton.boneList.append(bone)
+		#skeleton.draw()	
+			
+		Influences=get(rootNode,'Influence','list')
+		
+		for Influence in Influences:
+			Name=get(Influence,'Name','data')
+			matrix=get(Influence,'BindPoseSkinLocalToWorldMatrixInverseData','data')[0]
+			matrix=Matrix(matrix[:4],matrix[4:8],matrix[8:12],matrix[12:16])
+			for bone in skeleton.boneList:
+				if len(Name)>0:
+					if bone.name==Name[0][-26:]:
+						bone.matrix=matrix.invert()			
+		skeleton.draw()
+		
+		
+		for model in modelList:
+			meshSkeleton=model[0]
+			meshSkeleton.draw()	
+			for key in model[1]:
+				mesh=model[1][key]
+				mesh.TRIANGLE=True
+				mesh.boneNameList=meshSkeleton.boneNameList
+				mesh.SPLIT=True
+				mesh.BINDSKELETON=skeleton.name	
+				mesh.draw()
+				
+	else:
+	
+	
+	
+		poseSkeleton=Skeleton()	
+		poseSkeleton.ARMATURESPACE=True
+		poseSkeleton.NICE=True
+		BasisList=get(rootNode,'Basis','list')
+		for Basis in BasisList:
+			#print Basis.data
+			Name=get(Basis,'Name','data')
+			bone=Bone()
+			bone.Name=None
+			bone.name=None
+			bone.ParentRef=None
+			if len(Name)>0:
+				bone.name=Name[0][-26:]
+			ParentRef=get(Basis,'ParentRef','data')
+			if len(ParentRef)>0:
+				bone.parentID=ParentRef[0]#[-25:]
+			poseSkeleton.boneList.append(bone)
+			
+		Influences=get(rootNode,'Influence','list')
+		for Influence in Influences:
+			Name=get(Influence,'Name','data')
+			matrix=get(Influence,'BindPoseSkinLocalToWorldMatrixInverseData','data')
+			matrix=matrix[0]
+			matrix=Matrix(matrix[:4],matrix[4:8],matrix[8:12],matrix[12:16])
+			for bone in poseSkeleton.boneList:
+				if len(Name)>0:
+					if bone.name==Name[0][-26:]:
+						bone.matrix=matrix.invert()			
+		poseSkeleton.draw()
+		
+	
+	
+	
+	
+		SceneTreeNodePoolList=get(rootNode,'SceneTreeNodePool','list')
+		
+		skeletonID=0
+		if len(SceneTreeNodePoolList)==1:
+			locNodeList=get(SceneTreeNodePoolList[0],'Node','list')
+			for node in locNodeList:
+				Type=get(node,'Type','data')
+				if Type[0]=='Geometry':	
+					print
+					print 'Geometry'
+					
+					
+					skeleton=Skeleton()
+					skeleton.ARMATURESPACE=True
+					Influences=get(node,'Influence','list')
+					skeleton.name='bindBones-'+str(skeletonID)
+					skeleton.NICE=True
+					skeletonID+=1
+					for Influence in Influences:
+						bone=Bone()
+						Name=get(Influence,'Name','data')
+						matrix=get(Influence,'BindPoseSkinLocalToWorldMatrixInverseData','data')[0]
+						#matrix=matrix[0]
+						matrix=Matrix(matrix[:4],matrix[4:8],matrix[8:12],matrix[12:16])
+						if len(Name)>0:
+							bone.name=Name[0][-26:]
+							print bone.name
+						bone.matrix=matrix.invert()
+						skeleton.boneList.append(bone)
+					skeleton.draw()	
+					
+					
+					
+					subMeshCount=get(node,'NumPrimitives','data')
+					
+					
+					boneRemapList=get(node,'InfluenceRemapInfluenceRefs','data')#[0]
+					boneRemapInfo=get(node,'InfluenceRemapPrimitiveData','data')#[0]
+					#if len(boneRemapList)!=0 and len(boneRemapInfo)!=0:
+					
+					Primitives=get(node,'Primitive','list')				
+					meshList=[]
+					for i,Primitive in enumerate(Primitives):
+						VertexStreamReferences=get(Primitive,'VertexStreamReferences','data')[0][0]
+						stream=VertexStreamList[VertexStreamReferences]
+						VertexBufferReference=stream.vertexBufferReference
+						if len(meshList)>VertexBufferReference:
+							mesh=meshList[VertexBufferReference]
+						else:	
+							mesh=Mesh()
+							
+							
+							
+							#skin=Skin()
+							#mesh.skinList.append(skin)
+							
+							
+							
+							meshList.append(mesh)
+							vertBuffFileName=vertBuffFileNameList[VertexBufferReference]
+							print 	VertexStreamReferences,VertexBufferReference,vertBuffFileName,stream.vertexBufferOffset
+							file=open(g.dirname+os.sep+vertBuffFileName,'rb')
+							vb=BinaryReader(file)
+							vb.logOpen()
+							vb.seek(stream.vertexBufferOffset)
+							for m in range(stream.length):
+								t=vb.tell()
+								for element in stream.elements:
+									#print element.name
+									if element.name=='position':
+										vb.seek(t+element.offset)
+										if element.type==2:
+											mesh.vertPosList.append(vb.f(3))
+											if len(boneRemapList)!=0 and len(boneRemapInfo)!=0:
+												mesh.skinIDList.append(0)
+									if element.name=='texcoord0':
+										vb.seek(t+element.offset)
+										if element.type==1:
+											mesh.vertUVList.append(vb.f(2))
+									if element.name=='blendIndices':
+										vb.seek(t+element.offset)
+										if element.type==24:
+											mesh.skinIndiceList.append(vb.B(4))
+									if element.name=='blendWeights':
+										vb.seek(t+element.offset)
+										if element.type==25:
+											mesh.skinWeightList.append(vb.B(4))
+								vb.seek(t+stream.width)
+							vb.logClose()
+							file.close()
+							#mesh.draw()	
+							
+							
+						
+						if len(boneRemapList)!=0 and len(boneRemapInfo)!=0:
+							skin=Skin()
+							start=boneRemapInfo[0][i*2]
+							count=boneRemapInfo[0][i*2+1]
+							skin.boneMap=boneRemapList[0][start:start+count]
+							print
+							print 'bone map'
+							print skin.boneMap
+							mesh.skinList.append(skin)
+								
+						IndexStreamReference=get(Primitive,'IndexStreamReference','data')[0]
+						stream=IndexStreamList[IndexStreamReference]
+						IndexBufferReference=stream.indexBufferReference
+						indexBuffFileName=IndexBufferFileNameList[IndexBufferReference]
+						#print 	VertexStreamReferences,VertexBufferReference,vertBuffFileName,stream.vertexBufferOffset
+						file=open(g.dirname+os.sep+indexBuffFileName,'rb')
+						vb=BinaryReader(file)
+						vb.logOpen()
+						vb.seek(stream.indexBufferOffset)
+						mat=Mat()
+						mesh.matList.append(mat)
+						if stream.indexStreamPrimitive=='TRIANGLES':
+							mat.TRIANGLE=True
+						mat.IDStart=len(mesh.indiceList)
+						mat.IDCount=stream.length	
+						indiceList=vb.H(stream.length)
+						mesh.indiceList.extend(indiceList)	
+						if len(boneRemapList)!=0 and len(boneRemapInfo)!=0:
+							for id in indiceList:
+								mesh.skinIDList[id]=i
+						vb.logClose()
+						file.close()
+						#mesh.draw()
+					for mesh in meshList:
+						#mesh.SPLIT=True
+						mesh.boneNameList=skeleton.boneNameList
+						mesh.BINDSKELETON=poseSkeleton.name
+						mesh.draw()
+	
+		
+		
+	
+def Parser():	
+	filename=input.filename
+	ext=filename.split('.')[-1].lower()
+	global meshList,nodeList
+	global txt,txtFlag
+	print
+	print filename
+	print
+	nodeList=[]
+	txtFlag=1
+	ext=filename.split('.')[-1].lower()
+	if txtFlag==True:
+		txt=open(filename+'.txt','w')
+		
+	if ext=='oct':		
+		file=open(filename,'rb')
+		g=BinaryReader(file)
+		octParser(filename,g)
+		draw(filename,g)
+		file.close()
+		
+	if txtFlag==True:	
+		txt.close() 
+		
+	
+ 
+def openFile(flagList):
+	global input,output
+	input=Input(flagList)
+	output=Output(flagList)
+	parser=Parser()
+	
+	
+Blender.Window.FileSelector(openFile,'import','oct - asset tree') 	
